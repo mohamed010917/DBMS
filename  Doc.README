@@ -56,7 +56,8 @@ Clear Screen
 
     drop table <name>
 
-
+- truncate table
+     truncate tableName
 -Insert Data
 
     insert into <tablename>

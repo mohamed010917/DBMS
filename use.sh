@@ -152,6 +152,18 @@ if [ -d "$HOME/DBMS/databases/$1" ]; then
 
                 fi
 
+         elif [ "${words[0]}" == "truncate" ]; then
+
+                file="$HOME/DBMS/databases/$1/${words[1]}"
+
+                if [ -f "$file" ]; then
+
+                   head -3 "$file" > temp && mv temp "$file"
+                   echo "Data Deleted"
+                else 
+                        echo "not found table"
+                fi
+
 
 
         elif [ "${words[0]}" == "update" ]; then
