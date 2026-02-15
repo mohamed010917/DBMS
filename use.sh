@@ -17,27 +17,66 @@ if [ -d "$HOME/DBMS/databases/$1" ]; then
 
                 if [ -f "$file" ]; then
                         echo "Table exists"
-
+              
                 else
                         cols=("${words[@]:3}")
 
                         names=()
                         types=()
 
+                        available_types=("int" "float" "string" "bool" "date")
                         for c in "${cols[@]}"
                         do
-                        IFS=':' read name type <<< "$c"
-                        names+=("$name")
-                        types+=("$type")
+                                IFS=':' read name type <<< "$c"
+                                if [[ ! " ${available_types[*]} " =~ " $type " ]]; then
+                                        echo "Invalid type $type for column $name"
+                                        continue 2
+                                fi
+                                if [[ ! " ${names[*]} " =~ " $name " ]]; then
+                                        echo "Duplicate column name $name"
+                                        continue 2
+                                fi
+                                if [[ -z "$name" ]]; then
+                                        echo "Column name cannot be empty"
+                                        continue 2
+                                fi
+                                if [[ "$name" =~ [^a-zA-Z0-9_] ]]; then
+                                        echo "Column name $name contains invalid characters"
+                                        continue 2
+                                fi
+                                if [[ -z "$type" ]]; then
+                                        echo "Type for column $name cannot be empty"
+                                        continue 2
+                                fi
+
+                                names+=("$name")
+                                types+=("$type")
                         done
 
+                      if [ ${#names[@]} -eq 0 ]; then
+                        echo "cant add empty table"
+                        continue ;
+                      fi
+
+                      if [ ${#names[@]} -eq ${#types[@]}   ]; then
+                        echo "Dont create table plase chose data type for every coulmn"
+                        continue ;
+                      fi
+                        
                         touch "$file"
 
                         echo "$(IFS=:; echo "${names[*]}")" > "$file"
                         echo "$(IFS=:; echo "${types[*]}")" >> "$file"
-
+                       
                         read -p "Primary Key column > " pk
+                        while [[ ! " ${names[@]} " =~ " ${pk} " ]] ;
+                        do
+                                echo "the key is not found"
+                                read -p "Primary Key column > " pk
+                        done
                         echo "$pk" >> "$file"
+
+                        echo "Table Added "
                 fi
 
 
@@ -100,15 +139,51 @@ if [ -d "$HOME/DBMS/databases/$1" ]; then
                 fi
 
 
-        elif [ "${words[0]}" == "select" ]; then
-                
-                file="$HOME/DBMS/databases/$1/${words[1]}" 
-                if [ -f $file ] ; then
-                column -t -s: "$file" | head -1
-                column -t -s: "$file" | tail +4
-                else
-                echo "Table Not Found "
+        elif [[ "${words[0]}" == "select" ]]; then
+
+                file="$HOME/DBMS/databases/$1/${words[1]}"
+
+                if [[ ! -f "$file" ]]; then
+                        echo "Table Not Found"
+                        continue
                 fi
+
+             
+                if [[ ${#words[@]} -eq 2 ]]; then
+                        column -t -s: "$file" | head -1
+                        column -t -s: "$file" | tail -n +4
+                        continue
+                fi
+
+               
+                if [[ "${words[2]}" == "where" ]]; then
+
+                        IFS='=' read -r col val <<< "${words[3]}"
+
+                   
+                        IFS=':' read -ra headers < <(head -1 "$file")
+
+                        col_index=-1
+                        for i in "${!headers[@]}"; do
+                        if [[ "${headers[$i]}" == "$col" ]]; then
+                                col_index=$i
+                                break
+                        fi
+                        done
+
+                        if [[ $col_index -eq -1 ]]; then
+                        echo "Column Not Found"
+                        continue
+                        fi
+
+                        head -1 "$file" | column -t -s:
+
+                        awk -F: -v idx="$((col_index+1))" -v v="$val" '
+                        NR>=4 && $idx==v
+                        ' "$file" | column -t -s:
+                fi
+        
+
                
         elif [ "${words[0]}" == "delete" ]; then
 
@@ -152,7 +227,7 @@ if [ -d "$HOME/DBMS/databases/$1" ]; then
 
                 fi
 
-         elif [ "${words[0]}" == "truncate" ]; then
+        elif [ "${words[0]}" == "truncate" ]; then
 
                 file="$HOME/DBMS/databases/$1/${words[1]}"
 
